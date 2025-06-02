@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../blocs/home/home_bloc.dart';
 import '../../blocs/places/places_bloc.dart';
 import '../../blocs/favorites/favorites_bloc.dart';
+import '../../blocs/auth/auth_bloc.dart';
 
 import '../home/home_screen.dart';
 import '../places/places_screen.dart';
@@ -26,33 +27,6 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
 
-  // Wrap each page that needs a Bloc in the corresponding BlocProvider.
-  static final List<Widget> _pages = <Widget>[
-    // 1⃣ Home tab needs HomeBloc:
-    BlocProvider<HomeBloc>(
-      create: (_) => sl<HomeBloc>(),
-      child: const HomeScreen(),
-    ),
-
-    // 2⃣ Places tab needs PlacesBloc:
-    BlocProvider<PlacesBloc>(
-      create: (_) => sl<PlacesBloc>(),
-      child: const PlacesScreen(),
-    ),
-
-    // 3⃣ Scanner tab does not need a Bloc at the moment:
-    const ScannerScreen(),
-
-    // 4⃣ Favorites tab needs FavoritesBloc:
-    BlocProvider<FavoritesBloc>(
-      create: (_) => sl<FavoritesBloc>(),
-      child: const FavoritesScreen(),
-    ),
-
-    // 5⃣ Profile tab does not need a Bloc right now:
-    const ProfileScreen(),
-  ];
-
   void _onNavItemTapped(int index) {
     setState(() {
       _currentIndex = index;
@@ -71,8 +45,38 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Create the pages list directly in build method to ensure context access
+    final List<Widget> pages = <Widget>[
+      // 1⃣ Home tab needs HomeBloc:
+      BlocProvider<HomeBloc>(
+        create: (_) => sl<HomeBloc>(),
+        child: const HomeScreen(),
+      ),
+
+      // 2⃣ Places tab needs PlacesBloc:
+      BlocProvider<PlacesBloc>(
+        create: (_) => sl<PlacesBloc>(),
+        child: const PlacesScreen(),
+      ),
+
+      // 3⃣ Scanner tab does not need a Bloc at the moment:
+      const ScannerScreen(),
+
+      // 4⃣ Favorites tab needs FavoritesBloc:
+      BlocProvider<FavoritesBloc>(
+        create: (_) => sl<FavoritesBloc>(),
+        child: const FavoritesScreen(),
+      ),
+
+      // 5⃣ Profile tab - Now has access to AuthBloc from parent context:
+      const ProfileScreen(),
+    ];
+
     return Scaffold(
-      body: _pages[_currentIndex],
+      body: IndexedStack(
+        index: _currentIndex,
+        children: pages,
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: _onNavItemTapped,
