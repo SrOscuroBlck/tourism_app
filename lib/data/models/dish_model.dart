@@ -17,17 +17,34 @@ class DishModel extends Dish {
   });
 
   factory DishModel.fromJson(Map<String, dynamic> json) {
+    // 1) Grab the raw value from JSON:
+    final rawPrice = json['price'];
+
+    // 2) Convert it into a double no matter whether it's already a num or is a String:
+    double parsedPrice;
+    if (rawPrice is num) {
+      parsedPrice = rawPrice.toDouble();
+    } else if (rawPrice is String) {
+      parsedPrice = double.parse(rawPrice);
+    } else {
+      // In case something unexpected arrives, you can choose a default or throw.
+      parsedPrice = 0.0;
+    }
+
     return DishModel(
-      id: json['id'],
-      name: json['name'],
-      countryId: json['country_id'],
-      placeId: json['place_id'],
-      description: json['description'],
-      price: (json['price'] as num).toDouble(),
-      imageUrl: json['image_url'],
-      place: json['place'] != null ? PlaceModel.fromJson(json['place']) : null,
-      country:
-      json['country'] != null ? CountryModel.fromJson(json['country']) : null,
+      id: json['id'] as int,
+      name: json['name'] as String,
+      countryId: json['country_id'] as int,
+      placeId: json['place_id'] as int,
+      description: json['description'] as String?,
+      price: parsedPrice,
+      imageUrl: json['image_url'] as String?,
+      place: json['place'] != null
+          ? PlaceModel.fromJson(json['place'] as Map<String, dynamic>)
+          : null,
+      country: json['country'] != null
+          ? CountryModel.fromJson(json['country'] as Map<String, dynamic>)
+          : null,
     );
   }
 

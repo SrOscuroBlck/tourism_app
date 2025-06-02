@@ -1,4 +1,5 @@
 // lib/data/repositories/place_repository_impl.dart
+
 import 'package:dartz/dartz.dart';
 
 import '../../core/errors/exceptions.dart';
@@ -30,9 +31,11 @@ class PlaceRepositoryImpl implements PlaceRepository {
       );
       return Right(models);
     } on ServerException catch (e) {
+      // Propagate the server exception's message
       return Left(ServerFailure(message: e.message));
-    } catch (_) {
-      return Left(UnknownFailure());
+    } catch (e, stack) {
+      // Catch any other exception and wrap its text into a ServerFailure
+      return Left(ServerFailure(message: e.toString()));
     }
   }
 
@@ -43,8 +46,8 @@ class PlaceRepositoryImpl implements PlaceRepository {
       return Right(model);
     } on ServerException catch (e) {
       return Left(ServerFailure(message: e.message));
-    } catch (_) {
-      return Left(UnknownFailure());
+    } catch (e, stack) {
+      return Left(ServerFailure(message: e.toString()));
     }
   }
 
@@ -55,8 +58,8 @@ class PlaceRepositoryImpl implements PlaceRepository {
       return Right(model);
     } on ServerException catch (e) {
       return Left(ServerFailure(message: e.message));
-    } catch (_) {
-      return Left(UnknownFailure());
+    } catch (e, stack) {
+      return Left(ServerFailure(message: e.toString()));
     }
   }
 
@@ -73,8 +76,8 @@ class PlaceRepositoryImpl implements PlaceRepository {
       return Right(models);
     } on ServerException catch (e) {
       return Left(ServerFailure(message: e.message));
-    } catch (_) {
-      return Left(UnknownFailure());
+    } catch (e, stack) {
+      return Left(ServerFailure(message: e.toString()));
     }
   }
 
@@ -105,8 +108,8 @@ class PlaceRepositoryImpl implements PlaceRepository {
       return Right(model);
     } on ServerException catch (e) {
       return Left(ServerFailure(message: e.message));
-    } catch (_) {
-      return Left(UnknownFailure());
+    } catch (e, stack) {
+      return Left(ServerFailure(message: e.toString()));
     }
   }
 
@@ -139,8 +142,8 @@ class PlaceRepositoryImpl implements PlaceRepository {
       return Right(model);
     } on ServerException catch (e) {
       return Left(ServerFailure(message: e.message));
-    } catch (_) {
-      return Left(UnknownFailure());
+    } catch (e, stack) {
+      return Left(ServerFailure(message: e.toString()));
     }
   }
 
@@ -151,8 +154,8 @@ class PlaceRepositoryImpl implements PlaceRepository {
       return const Right(null);
     } on ServerException catch (e) {
       return Left(ServerFailure(message: e.message));
-    } catch (_) {
-      return Left(UnknownFailure());
+    } catch (e, stack) {
+      return Left(ServerFailure(message: e.toString()));
     }
   }
 }

@@ -53,6 +53,7 @@ class PlaceRemoteDataSourceImpl implements PlaceRemoteDataSource {
     return list.map((json) => PlaceModel.fromJson(json)).toList();
   }
 
+
   @override
   Future<PlaceModel> getPlaceById(int id) async {
     final response = await _apiClient.get(ApiConstants.placeById(id));

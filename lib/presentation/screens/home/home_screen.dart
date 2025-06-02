@@ -12,7 +12,7 @@ import '../../widgets/cards/place_card.dart';
 import '../../widgets/common/custom_app_bar.dart';
 import '../../../domain/entities/place.dart';
 
-// Repositories & use‐cases
+// Repositories & use-cases
 import '../../../domain/repositories/country_repository.dart';
 import '../../../domain/repositories/city_repository.dart';
 import '../../../domain/usecases/visits/get_user_visits_uscase.dart';
@@ -51,7 +51,8 @@ class _HomeScreenState extends State<HomeScreen> {
     // 1) Country count:
     final countryRepo = sl<CountryRepository>();
     final countryEither = await countryRepo.getAllCountries();
-    final countries = countryEither.fold<List>((fail) => <dynamic>[], (list) => list);
+    final countries =
+    countryEither.fold<List>((fail) => <dynamic>[], (list) => list);
 
     // 2) City count:
     final cityRepo = sl<CityRepository>();
@@ -74,7 +75,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // Dispatch to load top‐visited places
+    // Dispatch to load top-visited places
     context.read<HomeBloc>().add(LoadHomeData());
   }
 
@@ -101,7 +102,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         textInputAction: TextInputAction.search,
         onSubmitted: (query) {
-          // In a real app, you might dispatch to PlacesBloc or navigate to a search‐results page:
+          // In a real app, you might dispatch to PlacesBloc or navigate to a search-results page:
           debugPrint('Search submitted: $query');
         },
       ),
@@ -196,10 +197,26 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildCategoriesGrid() {
     final categories = [
-      _CategoryData(label: 'Countries', imageUrl: '', routeName: '/countries_list'),
-      _CategoryData(label: 'Cities',    imageUrl: '', routeName: '/cities_list'),
-      _CategoryData(label: 'People',    imageUrl: '', routeName: '/people_list'),
-      _CategoryData(label: 'Dishes',    imageUrl: '', routeName: '/dishes_list'),
+      _CategoryData(
+        label: 'Countries',
+        imageUrl: '',
+        routeName: '/countries_list',
+      ),
+      _CategoryData(
+        label: 'Cities',
+        imageUrl: '',
+        routeName: '/cities_list',
+      ),
+      _CategoryData(
+        label: 'People',
+        imageUrl: '',
+        routeName: '/people_list',
+      ),
+      _CategoryData(
+        label: 'Dishes',
+        imageUrl: '',
+        routeName: '/dishes_list',
+      ),
     ];
 
     return Padding(
@@ -242,16 +259,20 @@ class _HomeScreenState extends State<HomeScreen> {
           } else if (state is HomeLoaded) {
             final topVisited = state.topVisited;
             return SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildSearchBar(),
-                  _buildQuickStats(),   // ← replaced placeholder with FutureBuilder
+                  _buildQuickStats(),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
                       'Featured Destinations',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -261,7 +282,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     padding: EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
                       'Categories',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                   _buildCategoriesGrid(),
@@ -297,7 +321,9 @@ class _StatTile extends StatelessWidget {
       children: [
         Text(
           value,
-          style: AppTextStyles.headlineMedium.copyWith(color: AppColors.primary),
+          style: AppTextStyles.headlineMedium.copyWith(
+            color: AppColors.primary,
+          ),
         ),
         const SizedBox(height: 4),
         Text(label, style: AppTextStyles.bodyMedium),

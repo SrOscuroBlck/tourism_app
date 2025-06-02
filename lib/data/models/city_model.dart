@@ -1,8 +1,4 @@
-// lib/data/models/city_model.dart
 import '../../domain/entities/city.dart';
-import 'country_model.dart';
-import 'person_model.dart';
-import 'place_model.dart';
 
 class CityModel extends City {
   const CityModel({
@@ -18,28 +14,39 @@ class CityModel extends City {
   });
 
   factory CityModel.fromJson(Map<String, dynamic> json) {
+    // Helper to parse an int (in case JSON is string‐encoded, etc.)
+    int parseInt(dynamic value) {
+      if (value == null) return 0;
+      if (value is int) return value;
+      if (value is String) return int.tryParse(value) ?? 0;
+      return 0;
+    }
+
+    // Helper to parse a double
+    double? parseDouble(dynamic value) {
+      if (value == null) return null;
+      if (value is double) return value;
+      if (value is int) return value.toDouble();
+      if (value is String) return double.tryParse(value) ?? null;
+      return null;
+    }
+
     return CityModel(
-      id: json['id'],
-      name: json['name'],
-      countryId: json['country_id'],
-      population: json['population'],
-      latitude: json['latitude'] != null
-          ? double.tryParse(json['latitude'].toString())
+      id: parseInt(json['id']),
+      name: json['name']?.toString() ?? '',
+      // The top‐level "city" object you get under /api/places/: it does NOT include "country_id"
+      // so we default to 0 if missing. If you are calling GET /api/cities, that JSON _should_ include
+      // 'country_id'—otherwise you might want to pass it in from your use case.
+      countryId: parseInt(json['country_id']),
+      population: json['population'] != null
+          ? (int.tryParse(json['population'].toString()) ?? null)
           : null,
-      longitude: json['longitude'] != null
-          ? double.tryParse(json['longitude'].toString())
-          : null,
-      country: json['country'] != null
-          ? CountryModel.fromJson(json['country'])
-          : null,
-      people: json['people'] != null
-          ? List<PersonModel>.from(
-          (json['people'] as List).map((e) => PersonModel.fromJson(e)))
-          : null,
-      places: json['places'] != null
-          ? List<PlaceModel>.from(
-          (json['places'] as List).map((e) => PlaceModel.fromJson(e)))
-          : null,
+      latitude: parseDouble(json['latitude']),
+      longitude: parseDouble(json['longitude']),
+      // We leave nested country/people/places as null by default here
+      country: null,
+      people: null,
+      places: null,
     );
   }
 
@@ -48,16 +55,10 @@ class CityModel extends City {
       'id': id,
       'name': name,
       'country_id': countryId,
-      'population': population,
-      'latitude': latitude,
-      'longitude': longitude,
-      'country': country != null ? (country as CountryModel).toJson() : null,
-      'people': people != null
-          ? (people as List<PersonModel>).map((e) => e.toJson()).toList()
-          : null,
-      'places': places != null
-          ? (places as List<PlaceModel>).map((e) => e.toJson()).toList()
-          : null,
+      if (population != null) 'population': population,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
+      // Omit nested lists for simplicity; add back if you need them in a PUT/POST
     };
   }
 }

@@ -1,9 +1,4 @@
-// lib/data/models/country_model.dart
 import '../../domain/entities/country.dart';
-import 'city_model.dart';
-import 'person_model.dart';
-import 'place_model.dart';
-import 'dish_model.dart';
 
 class CountryModel extends Country {
   const CountryModel({
@@ -18,29 +13,28 @@ class CountryModel extends Country {
   });
 
   factory CountryModel.fromJson(Map<String, dynamic> json) {
+    // Helper to parse an int (in case JSON is string‐encoded)
+    int parseInt(dynamic value) {
+      if (value == null) return 0;
+      if (value is int) return value;
+      if (value is String) return int.tryParse(value) ?? 0;
+      return 0;
+    }
+
     return CountryModel(
-      id: json['id'],
-      name: json['name'],
+      id: parseInt(json['id']),
+      name: json['name']?.toString() ?? '',
+      // If your /api/country endpoint includes a numeric 'population', parse it; otherwise default to null
       population: json['population'] != null
-          ? (json['population'] as num).toInt()
+          ? (int.tryParse(json['population'].toString()) ?? null)
           : null,
-      continent: json['continent'],
-      cities: json['cities'] != null
-          ? List<CityModel>.from(
-          (json['cities'] as List).map((e) => CityModel.fromJson(e)))
-          : null,
-      people: json['people'] != null
-          ? List<PersonModel>.from(
-          (json['people'] as List).map((e) => PersonModel.fromJson(e)))
-          : null,
-      places: json['places'] != null
-          ? List<PlaceModel>.from(
-          (json['places'] as List).map((e) => PlaceModel.fromJson(e)))
-          : null,
-      dishes: json['dishes'] != null
-          ? List<DishModel>.from(
-          (json['dishes'] as List).map((e) => DishModel.fromJson(e)))
-          : null,
+      // The nested JSON under /api/places only has { id, name }—no 'continent' key—so default to empty:
+      continent: json['continent']?.toString() ?? '',
+      // Omit all nested lists (cities, people, places, dishes) here; re‐enable if your endpoint sends them
+      cities: null,
+      people: null,
+      places: null,
+      dishes: null,
     );
   }
 
@@ -48,20 +42,9 @@ class CountryModel extends Country {
     return {
       'id': id,
       'name': name,
-      'population': population,
+      if (population != null) 'population': population,
       'continent': continent,
-      'cities': cities != null
-          ? (cities as List<CityModel>).map((e) => e.toJson()).toList()
-          : null,
-      'people': people != null
-          ? (people as List<PersonModel>).map((e) => e.toJson()).toList()
-          : null,
-      'places': places != null
-          ? (places as List<PlaceModel>).map((e) => e.toJson()).toList()
-          : null,
-      'dishes': dishes != null
-          ? (dishes as List<DishModel>).map((e) => e.toJson()).toList()
-          : null,
+      // Omit nested lists for simplicity
     };
   }
 }
