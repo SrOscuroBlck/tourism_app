@@ -19,6 +19,7 @@ import '../../../domain/usecases/visits/get_user_visits_uscase.dart';
 
 // Our GetIt “service locator” (sl) was set up in injection_container.dart:
 import '../../../injection_container.dart';
+import '../places/place_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -182,10 +183,11 @@ class _HomeScreenState extends State<HomeScreen> {
             child: PlaceCard(
               place: place,
               onTap: () {
-                Navigator.pushNamed(
+                Navigator.push(
                   context,
-                  '/place_detail',
-                  arguments: place.id,
+                  MaterialPageRoute(
+                    builder: (context) => PlaceDetailScreen(placeId: place.id),
+                  ),
                 );
               },
             ),

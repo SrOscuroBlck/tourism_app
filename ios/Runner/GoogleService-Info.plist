@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>API_KEY</key>
+	<string>AIzaSyAMFbbhcTRXTuA1s_2ldRbcYF8pMD3q0QQ</string>
+	<key>GCM_SENDER_ID</key>
+	<string>487618751697</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.example.tourismapp</string>
+	<key>PROJECT_ID</key>
+	<string>tourismapp-96dac</string>
+	<key>STORAGE_BUCKET</key>
+	<string>tourismapp-96dac.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:487618751697:ios:7021ddf4e5e4c416bae9f0</string>
+</dict>
+</plist>
