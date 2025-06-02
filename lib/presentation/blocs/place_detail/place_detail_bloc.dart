@@ -40,12 +40,35 @@ class PlaceDetailBloc extends Bloc<PlaceDetailEvent, PlaceDetailState> {
       Emitter<PlaceDetailState> emit,
       ) async {
     if (state is PlaceDetailLoaded) {
+      final currentPlace = (state as PlaceDetailLoaded).place;
+
       final result = await _toggleFavoriteUseCase(
         ToggleFavoriteParams(id: event.id),
       );
+
       result.fold(
             (failure) => emit(PlaceDetailError(failure.message ?? 'Unknown error')),
-            (updatedPlace) => emit(PlaceDetailLoaded(updatedPlace)),
+            (updatedPlace) {
+          // Create a new place with updated favorite status but keep all other data
+          final newPlace = Place(
+            id: currentPlace.id,
+            name: currentPlace.name,
+            cityId: currentPlace.cityId,
+            countryId: currentPlace.countryId,
+            type: currentPlace.type,
+            address: currentPlace.address,
+            latitude: currentPlace.latitude,
+            longitude: currentPlace.longitude,
+            description: currentPlace.description,
+            imageUrl: currentPlace.imageUrl,
+            city: currentPlace.city,
+            country: currentPlace.country,
+            visitCount: currentPlace.visitCount,
+            favoriteCount: currentPlace.favoriteCount,
+            isFavorite: updatedPlace.isFavorite,
+          );
+          emit(PlaceDetailLoaded(newPlace));
+        },
       );
     }
   }

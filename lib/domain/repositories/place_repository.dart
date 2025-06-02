@@ -40,4 +40,6 @@ abstract class PlaceRepository {
     String? imageUrl,
   });
   Future<Either<Failure, void>> deletePlace(int id);
+
+  Future<Either<Failure, bool>> checkIsFavorite(int id);
 }

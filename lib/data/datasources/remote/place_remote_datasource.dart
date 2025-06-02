@@ -53,7 +53,6 @@ class PlaceRemoteDataSourceImpl implements PlaceRemoteDataSource {
     return list.map((json) => PlaceModel.fromJson(json)).toList();
   }
 
-
   @override
   Future<PlaceModel> getPlaceById(int id) async {
     final response = await _apiClient.get(ApiConstants.placeById(id));
@@ -65,7 +64,29 @@ class PlaceRemoteDataSourceImpl implements PlaceRemoteDataSource {
   Future<PlaceModel> toggleFavorite(int id) async {
     final response = await _apiClient.post(ApiConstants.toggleFavorite(id));
     final data = response.data;
-    return PlaceModel.fromJson(data['place'] ?? data);
+
+    // FIXED: Handle the backend response properly
+    // Backend returns: {"message": "...", "isFavorite": true/false}
+    // We need to return a minimal place with just the ID and favorite status
+
+    if (data['place'] != null) {
+      // If backend sends full place data, use it
+      return PlaceModel.fromJson(data['place']);
+    } else {
+      // If backend only sends favorite status, create minimal place object
+      final bool isFavorite = data['isFavorite'] ?? false;
+
+      // Create a minimal place model with just the essential data
+      // The bloc will merge this with the existing place data
+      return PlaceModel(
+        id: id,
+        name: '', // Will be overridden by bloc
+        cityId: 0, // Will be overridden by bloc
+        countryId: 0, // Will be overridden by bloc
+        type: '', // Will be overridden by bloc
+        isFavorite: isFavorite, // This is the important field
+      );
+    }
   }
 
   @override

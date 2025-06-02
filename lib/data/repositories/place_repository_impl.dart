@@ -158,4 +158,24 @@ class PlaceRepositoryImpl implements PlaceRepository {
       return Left(ServerFailure(message: e.toString()));
     }
   }
+
+  // IMPLEMENTATION: Check if a place is favorited by making a toggle request
+  @override
+  Future<Either<Failure, bool>> checkIsFavorite(int id) async {
+    try {
+      // Toggle to get the current status
+      final firstToggle = await _remoteDataSource.toggleFavorite(id);
+      final bool wasNotFavorited = firstToggle.isFavorite ?? false;
+
+      // Toggle back to restore original state
+      await _remoteDataSource.toggleFavorite(id);
+
+      // Return the original state (opposite of what we got from first toggle)
+      return Right(!wasNotFavorited);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message));
+    } catch (e, stack) {
+      return Left(ServerFailure(message: e.toString()));
+    }
+  }
 }

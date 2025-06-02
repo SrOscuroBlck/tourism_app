@@ -13,6 +13,7 @@ import '../../../domain/entities/dish.dart';
 import '../../../domain/entities/visit.dart';
 import '../../../domain/repositories/dish_repository.dart';
 import '../../../domain/repositories/visit_repository.dart';
+import '../../../domain/repositories/place_repository.dart';
 import '../../../injection_container.dart';
 import '../../blocs/favorites/favorites_bloc.dart';
 import '../../blocs/place_detail/place_detail_bloc.dart';
@@ -33,6 +34,7 @@ class PlaceDetailScreen extends StatefulWidget {
 class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
   final DishRepository _dishRepository = sl<DishRepository>();
   final VisitRepository _visitRepository = sl<VisitRepository>();
+  final PlaceRepository _placeRepository = sl<PlaceRepository>();
   final ImagePicker _picker = ImagePicker();
   final supabase = Supabase.instance.client;
 
@@ -53,6 +55,10 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
   bool _didInitializeVisitCount = false;
 
   bool _isRouteFavorited = false;
+
+  // THIS IS THE FIX: Track backend favorite status separately
+  bool? _backendFavoriteStatus;
+  bool _isCheckingFavoriteStatus = false;
 
   @override
   void initState() {
@@ -85,8 +91,45 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
         ),
       ),
     );
-    // Notify the FavoritesBloc so that the list screen updates
     context.read<FavoritesBloc>().add(LoadFavorites());
+  }
+
+  // THE FIX: Check backend favorite status once
+  Future<void> _checkBackendFavoriteStatus() async {
+    if (_isCheckingFavoriteStatus || _backendFavoriteStatus != null) return;
+
+    setState(() {
+      _isCheckingFavoriteStatus = true;
+    });
+
+    try {
+      // Toggle to see current status
+      final result = await _placeRepository.toggleFavorite(widget.placeId);
+
+      result.fold(
+            (failure) {
+          setState(() {
+            _isCheckingFavoriteStatus = false;
+          });
+        },
+            (toggledPlace) async {
+          final bool currentStatus = toggledPlace.isFavorite ?? false;
+          final bool originalStatus = !currentStatus;
+
+          // Toggle back to restore original state
+          await _placeRepository.toggleFavorite(widget.placeId);
+
+          setState(() {
+            _backendFavoriteStatus = originalStatus;
+            _isCheckingFavoriteStatus = false;
+          });
+        },
+      );
+    } catch (e) {
+      setState(() {
+        _isCheckingFavoriteStatus = false;
+      });
+    }
   }
 
   Future<void> _loadDishes(int placeId) async {
@@ -144,7 +187,6 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
     if (!alreadyVisited) {
       final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
       if (photo == null) {
-        // user canceled camera
         setState(() {
           _isManagingVisit = false;
         });
@@ -165,7 +207,7 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
               (failure) {
             setState(() {
               _visitError =
-              'Could not mark “${place.name}” as visited: ${failure.message}';
+              'Could not mark "${place.name}" as visited: ${failure.message}';
               _isManagingVisit = false;
             });
           },
@@ -178,7 +220,7 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
             });
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Marked “${place.name}” as visited!'),
+                content: Text('Marked "${place.name}" as visited!'),
                 backgroundColor: AppColors.success,
               ),
             );
@@ -197,7 +239,7 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
             (failure) {
           setState(() {
             _visitError =
-            'Could not unmark “${place.name}”: ${failure.message}';
+            'Could not unmark "${place.name}": ${failure.message}';
             _isManagingVisit = false;
           });
         },
@@ -211,7 +253,7 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
           });
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Unmarked “${place.name}” as visited.'),
+              content: Text('Unmarked "${place.name}" as visited.'),
               backgroundColor: AppColors.textHint,
             ),
           );
@@ -220,9 +262,14 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
     }
   }
 
-  void _toggleBackendFavorite(int placeId) {
-    // This assumes PlaceDetailBloc is provided above in the widget tree
-    context.read<PlaceDetailBloc>().add(ToggleFavoriteStatus(placeId));
+  void _toggleBackendFavorite(int placeId, BuildContext blocContext) {
+    // Update our local state immediately for responsive UI
+    setState(() {
+      _backendFavoriteStatus = !(_backendFavoriteStatus ?? false);
+    });
+
+    // Then trigger the bloc
+    blocContext.read<PlaceDetailBloc>().add(ToggleFavoriteStatus(placeId));
   }
 
   @override
@@ -266,13 +313,13 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   _loadDishes(place.id);
                   _fetchUserVisits(place.id);
+                  _checkBackendFavoriteStatus(); // THE FIX: Check real favorite status
                 });
               }
 
               return _buildPlaceDetailContent(place, context);
             }
 
-            // fallback
             return const Scaffold(
               appBar: CustomAppBar(title: 'Place Detail'),
               body: Center(child: Text('Unknown state')),
@@ -283,8 +330,11 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
     );
   }
 
-  Widget _buildPlaceDetailContent(Place place, BuildContext parentContext) {
+  Widget _buildPlaceDetailContent(Place place, BuildContext blocContext) {
     final bool isVisited = _existingVisit != null;
+
+    // THE FIX: Use our tracked backend status, NOT place.isFavorite
+    final bool isFavorited = _backendFavoriteStatus ?? place.isFavorite ?? false;
 
     return CustomScrollView(
       slivers: [
@@ -294,20 +344,15 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
           backgroundColor: AppColors.primary,
           iconTheme: const IconThemeData(color: AppColors.textLight),
           actions: [
-            // Backend toggle (heart icon)
+            // THE FIX: Use isFavorited (our tracked status) instead of place.isFavorite
             IconButton(
               icon: Icon(
-                place.isFavorite == true
-                    ? Icons.favorite
-                    : Icons.favorite_border,
-                color: place.isFavorite == true
-                    ? AppColors.error
-                    : AppColors.textLight,
+                isFavorited ? Icons.favorite : Icons.favorite_border,
+                color: isFavorited ? AppColors.error : AppColors.textLight,
               ),
-              onPressed: () => _toggleBackendFavorite(place.id),
+              onPressed: () => _toggleBackendFavorite(place.id, blocContext),
             ),
 
-            // Local bookmark toggle
             IconButton(
               icon: Icon(
                 _isRouteFavorited ? Icons.bookmark : Icons.bookmark_border,
