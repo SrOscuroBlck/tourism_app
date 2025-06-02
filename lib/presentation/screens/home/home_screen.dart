@@ -10,6 +10,7 @@ import '../../blocs/home/home_bloc.dart';
 import '../../widgets/cards/category_card.dart';
 import '../../widgets/cards/place_card.dart';
 import '../../widgets/common/custom_app_bar.dart';
+import '../../widgets/analytics/analytics_section.dart'; // NEW IMPORT
 import '../../../domain/entities/place.dart';
 
 // Repositories & use-cases
@@ -17,7 +18,7 @@ import '../../../domain/repositories/country_repository.dart';
 import '../../../domain/repositories/city_repository.dart';
 import '../../../domain/usecases/visits/get_user_visits_uscase.dart';
 
-// Our GetIt “service locator” (sl) was set up in injection_container.dart:
+// Our GetIt "service locator" (sl) was set up in injection_container.dart:
 import '../../../injection_container.dart';
 import '../places/place_detail_screen.dart';
 
@@ -28,7 +29,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-/// Simple data model for the three “quick stats”:
+/// Simple data model for the three "quick stats":
 class _StatsData {
   final int countryCount;
   final int cityCount;
@@ -76,7 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // Dispatch to load top-visited places
+    // Dispatch to load top-visited places AND analytics data
     context.read<HomeBloc>().add(LoadHomeData());
   }
 
@@ -123,7 +124,7 @@ class _HomeScreenState extends State<HomeScreen> {
         }
 
         if (snapshot.hasError) {
-          // If any error occurred, simply show “N/A”
+          // If any error occurred, simply show "N/A"
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
@@ -260,6 +261,8 @@ class _HomeScreenState extends State<HomeScreen> {
             return const Center(child: CircularProgressIndicator());
           } else if (state is HomeLoaded) {
             final topVisited = state.topVisited;
+            final analytics = state.analytics; // NEW: Get analytics data
+
             return SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
               child: Column(
@@ -267,6 +270,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   _buildSearchBar(),
                   _buildQuickStats(),
+
+                  // Featured Destinations Section
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
@@ -279,7 +284,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 8),
                   _buildFeaturedCarousel(topVisited),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
+
+                  // NEW: Analytics Section (THE 5 QUERIES)
+                  if (analytics != null) AnalyticsSection(analytics: analytics),
+                  const SizedBox(height: 24),
+
+                  // Categories Section
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
@@ -334,7 +345,7 @@ class _StatTile extends StatelessWidget {
   }
 }
 
-/// Tiny model to store each category’s label/image/route:
+/// Tiny model to store each category's label/image/route:
 class _CategoryData {
   final String label;
   final String imageUrl;

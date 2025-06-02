@@ -1,9 +1,11 @@
+// lib/presentation/blocs/favorites/favorites_bloc.dart
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../../core/errors/failures.dart';
-import '../../../data/datasources/local/favorites_local_datasource.dart';
 import '../../../domain/entities/place.dart';
+import '../../../domain/repositories/place_repository.dart';
+import '../../../data/datasources/local/favorites_local_datasource.dart';
 import '../../../domain/usecases/places/get_place_detail_uscase.dart';
 
 part 'favorites_event.dart';
@@ -28,23 +30,39 @@ class FavoritesBloc extends Bloc<FavoritesEvent, FavoritesState> {
       ) async {
     emit(FavoritesLoading());
     try {
-      final List<int> ids = await _localDataSource.getFavoriteRoutes();
-      final List<Place> loaded = [];
+      // Get favorite place IDs from local storage (which should be synced with backend)
+      final List<int> favoriteIds = await _localDataSource.getFavoriteRoutes();
 
-      for (final id in ids) {
+      print("🔍 [FavoritesBloc] Found favorite IDs: $favoriteIds");
+
+      if (favoriteIds.isEmpty) {
+        print("🔍 [FavoritesBloc] No favorites found");
+        emit(const FavoritesLoaded([]));
+        return;
+      }
+
+      final List<Place> loadedPlaces = [];
+
+      // Fetch details for each favorite place
+      for (final id in favoriteIds) {
+        print("🔍 [FavoritesBloc] Fetching details for place $id");
         final result = await _getDetailUseCase(PlaceIdParams(id: id));
         result.fold(
               (failure) {
-            // skip if one fails
+            print("❌ [FavoritesBloc] Failed to load place $id: ${failure.message}");
+            // Skip this place if it fails to load
           },
               (place) {
-            loaded.add(place);
+            print("✅ [FavoritesBloc] Loaded place: ${place.name}");
+            loadedPlaces.add(place);
           },
         );
       }
 
-      emit(FavoritesLoaded(loaded));
-    } catch (_) {
+      print("🔍 [FavoritesBloc] Final loaded places count: ${loadedPlaces.length}");
+      emit(FavoritesLoaded(loadedPlaces));
+    } catch (e) {
+      print("❌ [FavoritesBloc] Exception: $e");
       emit(const FavoritesError('Failed to load favorites'));
     }
   }

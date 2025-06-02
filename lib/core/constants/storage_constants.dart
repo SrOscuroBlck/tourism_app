@@ -9,6 +9,7 @@ class StorageConstants {
   // Shared Preferences Keys
   static const String isFirstTime = 'is_first_time';
   static const String favoriteRoutes = 'favorite_routes';
+  static const String savedRoutes = 'saved_routes';
   static const String recentSearches = 'recent_searches';
   static const String appLanguage = 'app_language';
   static const String isDarkMode = 'is_dark_mode';

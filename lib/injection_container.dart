@@ -3,6 +3,8 @@
 import 'package:get_it/get_it.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tourismapp/data/datasources/local/route_local_datasource.dart';
+import 'package:tourismapp/presentation/blocs/route_planner/route_planner_bloc.dart';
 
 import 'core/network/api_client.dart';
 import 'core/network/network_info.dart';
@@ -25,6 +27,7 @@ import 'data/repositories/country_repository_impl.dart';
 import 'data/repositories/dish_repository_impl.dart';
 import 'data/repositories/person_repository_impl.dart';
 import 'data/repositories/place_repository_impl.dart';
+import 'data/repositories/route_repository_impl.dart';
 import 'data/repositories/tag_repository_impl.dart';
 import 'data/repositories/visit_repository_impl.dart';
 
@@ -34,6 +37,7 @@ import 'domain/repositories/country_repository.dart';
 import 'domain/repositories/dish_repository.dart';
 import 'domain/repositories/person_repository.dart';
 import 'domain/repositories/place_repository.dart';
+import 'domain/repositories/route_repository.dart';
 import 'domain/repositories/tag_repository.dart';
 import 'domain/repositories/visit_repository.dart';
 
@@ -45,6 +49,9 @@ import 'domain/usecases/places/get_places_uscase.dart';
 import 'domain/usecases/places/get_place_detail_uscase.dart';
 import 'domain/usecases/places/toggle_favorite_uscase.dart';
 
+import 'domain/usecases/routes/delete_route_usecase.dart';
+import 'domain/usecases/routes/get_routes_usecase.dart';
+import 'domain/usecases/routes/save_route_usecase.dart';
 import 'domain/usecases/visits/create_visit_uscase.dart';
 import 'domain/usecases/visits/get_user_visits_uscase.dart';
 
@@ -107,6 +114,9 @@ Future<void> init() async {
   sl.registerLazySingleton<FavoritesLocalDataSource>(
         () => FavoritesLocalDataSourceImpl(sharedPreferences: sl()),
   );
+  sl.registerLazySingleton<RouteLocalDataSource>(
+        () => RouteLocalDataSourceImpl(prefs: sl()),
+  );
 
   // --------------------------------------------
   // Repositories
@@ -139,6 +149,9 @@ Future<void> init() async {
   sl.registerLazySingleton<VisitRepository>(
         () => VisitRepositoryImpl(remoteDataSource: sl()),
   );
+  sl.registerLazySingleton<RouteRepository>(
+        () => RouteRepositoryImpl(localDataSource: sl()),
+  );
 
   // --------------------------------------------
   // Use Cases
@@ -169,6 +182,15 @@ Future<void> init() async {
   );
   sl.registerLazySingleton<GetUserVisitsUseCase>(
         () => GetUserVisitsUseCase(sl()),
+  );
+  sl.registerLazySingleton<GetRoutesUseCase>(
+        () => GetRoutesUseCase(sl()),
+  );
+  sl.registerLazySingleton<SaveRouteUseCase>(
+        () => SaveRouteUseCase(sl()),
+  );
+  sl.registerLazySingleton<DeleteRouteUseCase>(
+        () => DeleteRouteUseCase(sl()),
   );
 
   // --------------------------------------------
@@ -209,6 +231,14 @@ Future<void> init() async {
         () => FavoritesBloc(
       localDataSource: sl(),
       getDetailUseCase: sl(),
+    ),
+  );
+
+  sl.registerFactory<RoutePlannerBloc>(
+        () => RoutePlannerBloc(
+      getRoutesUseCase: sl<GetRoutesUseCase>(),
+      saveRouteUseCase: sl<SaveRouteUseCase>(),
+      deleteRouteUseCase: sl<DeleteRouteUseCase>(),
     ),
   );
 }

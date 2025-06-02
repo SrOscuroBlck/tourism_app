@@ -56,7 +56,7 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
 
   bool _isRouteFavorited = false;
 
-  // THIS IS THE FIX: Track backend favorite status separately
+  // Track backend favorite status separately
   bool? _backendFavoriteStatus;
   bool _isCheckingFavoriteStatus = false;
 
@@ -76,25 +76,32 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
   Future<void> _toggleRouteFavorite() async {
     if (_isRouteFavorited) {
       await _localFavDs.removeFavoriteRoute(widget.placeId);
+      // Sync: Also remove backend favorite
+      _toggleBackendFavorite(widget.placeId, context);
     } else {
       await _localFavDs.addFavoriteRoute(widget.placeId);
+      // Sync: Also add backend favorite
+      _toggleBackendFavorite(widget.placeId, context);
     }
+
     setState(() {
       _isRouteFavorited = !_isRouteFavorited;
     });
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           _isRouteFavorited
-              ? 'Added to local favorites'
-              : 'Removed from local favorites',
+              ? 'Added to favorites'
+              : 'Removed from favorites',
         ),
       ),
     );
-    context.read<FavoritesBloc>().add(LoadFavorites());
+
+    // Note: Can't trigger FavoritesBloc here due to Provider scope
   }
 
-  // THE FIX: Check backend favorite status once
+  // Check backend favorite status once
   Future<void> _checkBackendFavoriteStatus() async {
     if (_isCheckingFavoriteStatus || _backendFavoriteStatus != null) return;
 
@@ -268,8 +275,18 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
       _backendFavoriteStatus = !(_backendFavoriteStatus ?? false);
     });
 
-    // Then trigger the bloc
+    // Trigger the bloc
     blocContext.read<PlaceDetailBloc>().add(ToggleFavoriteStatus(placeId));
+
+    // SYNC: Also update local favorites to match backend
+    if (_backendFavoriteStatus == true) {
+      _localFavDs.addFavoriteRoute(placeId);
+    } else {
+      _localFavDs.removeFavoriteRoute(placeId);
+    }
+
+    // Note: Can't trigger FavoritesBloc.add(LoadFavorites()) here due to Provider scope
+    // The FavoritesScreen will automatically reload when user navigates to Favorites tab
   }
 
   @override
@@ -313,7 +330,7 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   _loadDishes(place.id);
                   _fetchUserVisits(place.id);
-                  _checkBackendFavoriteStatus(); // THE FIX: Check real favorite status
+                  _checkBackendFavoriteStatus();
                 });
               }
 
@@ -332,8 +349,6 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
 
   Widget _buildPlaceDetailContent(Place place, BuildContext blocContext) {
     final bool isVisited = _existingVisit != null;
-
-    // THE FIX: Use our tracked backend status, NOT place.isFavorite
     final bool isFavorited = _backendFavoriteStatus ?? place.isFavorite ?? false;
 
     return CustomScrollView(
@@ -344,7 +359,6 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
           backgroundColor: AppColors.primary,
           iconTheme: const IconThemeData(color: AppColors.textLight),
           actions: [
-            // THE FIX: Use isFavorited (our tracked status) instead of place.isFavorite
             IconButton(
               icon: Icon(
                 isFavorited ? Icons.favorite : Icons.favorite_border,
@@ -352,7 +366,6 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
               ),
               onPressed: () => _toggleBackendFavorite(place.id, blocContext),
             ),
-
             IconButton(
               icon: Icon(
                 _isRouteFavorited ? Icons.bookmark : Icons.bookmark_border,

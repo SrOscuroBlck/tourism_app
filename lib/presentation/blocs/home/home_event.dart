@@ -7,5 +7,8 @@ abstract class HomeEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Load whatever data is needed for the “home” screen (e.g. top‐visited places).
+/// Load whatever data is needed for the home screen (i.e. top‐visited places).
 class LoadHomeData extends HomeEvent {}
+
+/// (Optional) Load analytics data if it wasn’t fetched already.
+class LoadAnalyticsData extends HomeEvent {}
