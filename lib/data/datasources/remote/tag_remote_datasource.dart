@@ -1,6 +1,6 @@
 // lib/data/datasources/remote/tag_remote_datasource.dart
-import 'package:dio/dio.dart';
 
+import 'package:dio/dio.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../models/tag_model.dart';
 import '../../../core/network/api_client.dart';
@@ -29,7 +29,8 @@ abstract class TagRemoteDataSource {
 class TagRemoteDataSourceImpl implements TagRemoteDataSource {
   final ApiClient _apiClient;
 
-  TagRemoteDataSourceImpl({required ApiClient apiClient}) : _apiClient = apiClient;
+  TagRemoteDataSourceImpl({required ApiClient apiClient})
+      : _apiClient = apiClient;
 
   @override
   Future<List<TagModel>> getUserTags() async {
@@ -48,8 +49,30 @@ class TagRemoteDataSourceImpl implements TagRemoteDataSource {
   @override
   Future<List<TagModel>> getTagsByPerson(int personId) async {
     final response = await _apiClient.get(ApiConstants.tagsByPerson(personId));
-    final List list = response.data['tags'];
-    return list.map((json) => TagModel.fromJson(json)).toList();
+
+    // 1) Debug print the raw JSON (optional, remove in production)
+    print("🏷️ [TagRemoteDataSource] raw response.data for person $personId = ${response.data}");
+
+    // 2) Check that 'tags' exists and is a List
+    final raw = response.data;
+    if (raw is! Map<String, dynamic> || raw['tags'] is! List) {
+      // If the server did not send a 'tags' array, just return an empty list
+      return <TagModel>[];
+    }
+
+    final List<dynamic> list = raw['tags'] as List<dynamic>;
+    final result = <TagModel>[];
+    for (final item in list) {
+      try {
+        result.add(TagModel.fromJson(item as Map<String, dynamic>));
+      } catch (e, stack) {
+        // If one tag fails to parse, skip it and log the error:
+        print("❌ [TagParsing] failed to parse one tag JSON: $item");
+        print("    Exception: $e");
+        print("    Stack: $stack");
+      }
+    }
+    return result;
   }
 
   @override

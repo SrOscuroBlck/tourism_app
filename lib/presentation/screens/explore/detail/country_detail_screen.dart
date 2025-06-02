@@ -22,6 +22,7 @@ import '../../../widgets/cards/dish_card.dart';
 import '../../../widgets/common/custom_app_bar.dart';
 import '../../../widgets/common/loading_widget.dart';
 import '../../../widgets/common/error_widget.dart' as AppError;
+import '../../places/place_detail_screen.dart';
 import 'city_detail_screen.dart';
 import 'dish_detail_screen.dart';
 
@@ -309,10 +310,11 @@ class _CountryDetailScreenState extends State<CountryDetailScreen>
           child: PlaceCard(
             place: place,
             onTap: () {
-              Navigator.pushNamed(
+              Navigator.push(
                 context,
-                '/place_detail',
-                arguments: place.id,
+                MaterialPageRoute(
+                  builder: (ctx) => PlaceDetailScreen(placeId: place.id),
+                ),
               );
             },
           ),

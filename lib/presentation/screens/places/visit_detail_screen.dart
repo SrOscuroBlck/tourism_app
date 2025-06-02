@@ -1,3 +1,5 @@
+// lib/presentation/screens/places/visit_detail_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -19,19 +21,21 @@ class VisitDetailScreen extends StatefulWidget {
 }
 
 class _VisitDetailScreenState extends State<VisitDetailScreen> {
-  late String _formattedDate;
+  late final String _formattedDate;
 
   @override
   void initState() {
     super.initState();
-    // Format the visit date/time however you like. Example: “July 21, 2024 – 14:30”
-    _formattedDate = DateFormat.yMMMMd().add_Hm().format(widget.visit.visitedAt);
+    // Format the visit date/time: e.g. “July 21, 2024 – 14:30”
+    _formattedDate =
+        DateFormat.yMMMMd().add_Hm().format(widget.visit.visitedAt);
   }
 
   @override
   Widget build(BuildContext context) {
-    final visit = widget.visit;
+    final Visit visit = widget.visit;
     final place = visit.place;
+    final bool hasPhoto = visit.photoUrl != null && visit.photoUrl!.isNotEmpty;
 
     return Scaffold(
       appBar: const CustomAppBar(
@@ -44,7 +48,7 @@ class _VisitDetailScreenState extends State<VisitDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // ─── Visit Photo / Placeholder ───────────────────────
-            if (visit.photoUrl != null && visit.photoUrl!.isNotEmpty) ...[
+            if (hasPhoto)
               AspectRatio(
                 aspectRatio: 16 / 9,
                 child: Image.network(
@@ -61,8 +65,8 @@ class _VisitDetailScreenState extends State<VisitDetailScreen> {
                     ),
                   ),
                 ),
-              ),
-            ] else ...[
+              )
+            else
               Container(
                 height: 200,
                 color: AppColors.surface,
@@ -74,7 +78,8 @@ class _VisitDetailScreenState extends State<VisitDetailScreen> {
                   ),
                 ),
               ),
-            ],
+
+            const SizedBox(height: 16),
 
             // ─── Padding Around Details ─────────────────────────
             Padding(
@@ -82,13 +87,14 @@ class _VisitDetailScreenState extends State<VisitDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Place name (if loaded)
-                  if (place != null)
+                  // Place name (if available)
+                  if (place != null) ...[
                     Text(place.name, style: AppTextStyles.headlineMedium),
-                  if (place != null) const SizedBox(height: 8),
+                    const SizedBox(height: 8),
+                  ],
 
                   // City & Country
-                  if (place?.city != null)
+                  if (place?.city != null) ...[
                     Row(
                       children: [
                         const Icon(Icons.location_city,
@@ -101,8 +107,9 @@ class _VisitDetailScreenState extends State<VisitDetailScreen> {
                         ),
                       ],
                     ),
-                  if (place?.country != null) const SizedBox(height: 4),
-                  if (place?.country != null)
+                  ],
+                  if (place?.country != null) ...[
+                    const SizedBox(height: 4),
                     Row(
                       children: [
                         const Icon(Icons.public,
@@ -115,6 +122,7 @@ class _VisitDetailScreenState extends State<VisitDetailScreen> {
                         ),
                       ],
                     ),
+                  ],
                   const SizedBox(height: 16),
 
                   // Visited At
@@ -136,7 +144,8 @@ class _VisitDetailScreenState extends State<VisitDetailScreen> {
                   if (visit.latitude != null && visit.longitude != null) ...[
                     Row(
                       children: [
-                        const Icon(Icons.map, size: 20, color: AppColors.textSecondary),
+                        const Icon(Icons.map,
+                            size: 20, color: AppColors.textSecondary),
                         const SizedBox(width: 8),
                         Text(
                           'Coordinates: '
@@ -150,7 +159,7 @@ class _VisitDetailScreenState extends State<VisitDetailScreen> {
                     const SizedBox(height: 16),
                   ],
 
-                  // Photo URL (if you want to display as plain text)
+                  // Photo URL (if you want to display it as plain text)
                   if (visit.photoUrl != null) ...[
                     Text(
                       'Photo URL:',
@@ -165,28 +174,6 @@ class _VisitDetailScreenState extends State<VisitDetailScreen> {
                     ),
                     const SizedBox(height: 16),
                   ],
-
-                  // ─── “Edit Photo” Button (placeholder) ─────────────────
-                  // You can hook this up to image picker later.
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.edit, color: Colors.white),
-                      label: const Text('Edit Photo'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      onPressed: () {
-                        // TODO: wire up a image picker or camera to update visit.photoUrl
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Edit Photo tapped')),
-                        );
-                      },
-                    ),
-                  ),
                 ],
               ),
             ),

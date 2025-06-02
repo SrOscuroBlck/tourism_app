@@ -1,8 +1,8 @@
 // lib/data/models/person_model.dart
+
 import '../../domain/entities/person.dart';
 import 'city_model.dart';
 import 'country_model.dart';
-import 'tag_model.dart';
 
 class PersonModel extends Person {
   const PersonModel({
@@ -16,28 +16,31 @@ class PersonModel extends Person {
     super.imageUrl,
     super.city,
     super.country,
-    super.tags,
+    super.tags, // We’ll leave this null here
   });
 
   factory PersonModel.fromJson(Map<String, dynamic> json) {
     return PersonModel(
-      id: json['id'],
-      name: json['name'],
-      cityId: json['city_id'],
-      countryId: json['country_id'],
-      category: json['category'],
+      id: json['id'] as int,
+      name: json['name'] as String,
+      cityId: json['city_id'] as int,
+      countryId: json['country_id'] as int,
+      category: json['category'] as String,
       birthDate: json['birth_date'] != null
-          ? DateTime.parse(json['birth_date'])
+          ? DateTime.parse(json['birth_date'] as String)
           : null,
-      biography: json['biography'],
-      imageUrl: json['image_url'],
-      city: json['city'] != null ? CityModel.fromJson(json['city']) : null,
-      country:
-      json['country'] != null ? CountryModel.fromJson(json['country']) : null,
-      tags: json['tags'] != null
-          ? List<TagModel>.from(
-          (json['tags'] as List).map((e) => TagModel.fromJson(e)))
+      biography: json['biography'] as String?,
+      imageUrl: json['image_url'] as String?,
+      city: json['city'] != null
+          ? CityModel.fromJson(json['city'] as Map<String, dynamic>)
           : null,
+      country: json['country'] != null
+          ? CountryModel.fromJson(json['country'] as Map<String, dynamic>)
+          : null,
+
+      // We deliberately do NOT parse `tags` here. The API only returned “[{id:1}, …]”,
+      // which doesn’t contain userId, personId, comment, etc. Those come from a separate endpoint.
+      tags: null,
     );
   }
 
@@ -53,9 +56,7 @@ class PersonModel extends Person {
       'image_url': imageUrl,
       'city': city != null ? (city as CityModel).toJson() : null,
       'country': country != null ? (country as CountryModel).toJson() : null,
-      'tags': tags != null
-          ? (tags as List<TagModel>).map((e) => e.toJson()).toList()
-          : null,
+      // We omit `tags` here as well
     };
   }
 }

@@ -13,8 +13,22 @@ import '../../widgets/common/error_widget.dart' as AppError;
 import '../../widgets/common/loading_widget.dart';
 import 'detail/person_detail_screen.dart';
 
+/// If your backend allows filtering, you can pass any of these:
+///   PeopleListScreen(countryId: 5)
+///   PeopleListScreen(cityId: 12, category: 'Actor')
 class PeopleListScreen extends StatefulWidget {
-  const PeopleListScreen({Key? key}) : super(key: key);
+  final int? countryId;
+  final int? cityId;
+  final String? category;
+  final String? search;
+
+  const PeopleListScreen({
+    Key? key,
+    this.countryId,
+    this.cityId,
+    this.category,
+    this.search,
+  }) : super(key: key);
 
   @override
   _PeopleListScreenState createState() => _PeopleListScreenState();
@@ -39,7 +53,13 @@ class _PeopleListScreenState extends State<PeopleListScreen> {
       _errorMessage = null;
     });
 
-    final result = await _personRepository.getAllPeople();
+    final result = await _personRepository.getAllPeople(
+      countryId: widget.countryId,
+      cityId: widget.cityId,
+      category: widget.category,
+      search: widget.search,
+    );
+
     result.fold(
           (failure) {
         setState(() {
@@ -68,30 +88,54 @@ class _PeopleListScreenState extends State<PeopleListScreen> {
         onRefresh: _loadPeople,
         child: Builder(
           builder: (_) {
+            // 1) Loading State
             if (_isLoading) {
               return const Center(child: LoadingWidget(size: 48));
             }
 
+            // 2) Error State
             if (_errorMessage != null) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    AppError.ErrorWidget(message: _errorMessage!),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: _loadPeople,
-                      child: const Text('Retry'),
+              // Wrap in a scrollable so pull-to-refresh still works
+              return SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: MediaQuery.of(context).size.height - kToolbarHeight,
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AppError.ErrorWidget(message: _errorMessage!),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _loadPeople,
+                          child: const Text('Retry'),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               );
             }
 
+            // 3) Empty State
             if (_people.isEmpty) {
-              return const Center(child: Text('No people found'));
+              // Again wrap so pull-to-refresh is possible
+              return SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: MediaQuery.of(context).size.height - kToolbarHeight,
+                  ),
+                  child: const Center(
+                    child: Text('No people found'),
+                  ),
+                ),
+              );
             }
 
+            // 4) Success State: Show the list of PersonCard
             return ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: _people.length,

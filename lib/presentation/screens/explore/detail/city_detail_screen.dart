@@ -16,6 +16,7 @@ import '../../../widgets/cards/person_card.dart';
 import '../../../widgets/common/custom_app_bar.dart';
 import '../../../widgets/common/loading_widget.dart';
 import '../../../widgets/common/error_widget.dart' as AppError;
+import '../../places/place_detail_screen.dart';
 
 class CityDetailScreen extends StatefulWidget {
   final City city;
@@ -215,10 +216,11 @@ class _CityDetailScreenState extends State<CityDetailScreen>
             place: place,
             onTap: () {
               // Navigate to place detail
-              Navigator.pushNamed(
+              Navigator.push(
                 context,
-                '/place_detail',
-                arguments: place.id,
+                MaterialPageRoute(
+                  builder: (_) => PlaceDetailScreen(placeId: place.id),
+                ),
               );
             },
           ),

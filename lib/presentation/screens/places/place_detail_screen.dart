@@ -1,16 +1,20 @@
-// lib/presentation/screens/places/place_detail_screen.dart
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../data/datasources/local/favorites_local_datasource.dart';
 import '../../../domain/entities/place.dart';
 import '../../../domain/entities/dish.dart';
 import '../../../domain/entities/visit.dart';
 import '../../../domain/repositories/dish_repository.dart';
 import '../../../domain/repositories/visit_repository.dart';
 import '../../../injection_container.dart';
+import '../../blocs/favorites/favorites_bloc.dart';
 import '../../blocs/place_detail/place_detail_bloc.dart';
 import '../../widgets/cards/dish_card.dart';
 import '../../widgets/common/custom_app_bar.dart';
@@ -20,11 +24,7 @@ import '../explore/detail/dish_detail_screen.dart';
 
 class PlaceDetailScreen extends StatefulWidget {
   final int placeId;
-
-  const PlaceDetailScreen({
-    Key? key,
-    required this.placeId,
-  }) : super(key: key);
+  const PlaceDetailScreen({Key? key, required this.placeId}) : super(key: key);
 
   @override
   State<PlaceDetailScreen> createState() => _PlaceDetailScreenState();
@@ -33,6 +33,10 @@ class PlaceDetailScreen extends StatefulWidget {
 class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
   final DishRepository _dishRepository = sl<DishRepository>();
   final VisitRepository _visitRepository = sl<VisitRepository>();
+  final ImagePicker _picker = ImagePicker();
+  final supabase = Supabase.instance.client;
+
+  final FavoritesLocalDataSource _localFavDs = sl<FavoritesLocalDataSource>();
 
   List<Dish> _dishes = [];
   bool _isLoadingDishes = false;
@@ -40,22 +44,56 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
   bool _hasRequestedDishes = false;
 
   List<Visit> _userVisits = [];
-  Visit? _existingVisit; // non‐null if this place has already been visited
+  Visit? _existingVisit;
 
   bool _isManagingVisit = false;
   String? _visitError;
 
-  /// Keeps track of the current number of visits (initially from `place.visitCount`).
   int _currentVisitCount = 0;
   bool _didInitializeVisitCount = false;
 
-  /// 1) Load all dishes for this place.
+  bool _isRouteFavorited = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkIfRouteFavorited();
+  }
+
+  Future<void> _checkIfRouteFavorited() async {
+    final favorites = await _localFavDs.getFavoriteRoutes();
+    setState(() {
+      _isRouteFavorited = favorites.contains(widget.placeId);
+    });
+  }
+
+  Future<void> _toggleRouteFavorite() async {
+    if (_isRouteFavorited) {
+      await _localFavDs.removeFavoriteRoute(widget.placeId);
+    } else {
+      await _localFavDs.addFavoriteRoute(widget.placeId);
+    }
+    setState(() {
+      _isRouteFavorited = !_isRouteFavorited;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _isRouteFavorited
+              ? 'Added to local favorites'
+              : 'Removed from local favorites',
+        ),
+      ),
+    );
+    // Notify the FavoritesBloc so that the list screen updates
+    context.read<FavoritesBloc>().add(LoadFavorites());
+  }
+
   Future<void> _loadDishes(int placeId) async {
     setState(() {
       _isLoadingDishes = true;
       _dishesError = null;
     });
-
     final result = await _dishRepository.getAllDishes(placeId: placeId);
     result.fold(
           (failure) {
@@ -73,13 +111,10 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
     );
   }
 
-  /// 2) Fetch all of the user’s visits, then see if this place is among them.
   Future<void> _fetchUserVisits(int placeId) async {
     final result = await _visitRepository.getUserVisits();
     result.fold(
-          (failure) {
-        // Silently ignore failures here (or optionally show SnackBar).
-      },
+          (_) {},
           (visits) {
         Visit? found;
         for (final v in visits) {
@@ -96,9 +131,8 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
     );
   }
 
-  /// 3) Toggle between marking and unmarking as visited.
   Future<void> _toggleVisited(Place place) async {
-    if (_isManagingVisit) return; // avoid double‐tap
+    if (_isManagingVisit) return;
 
     setState(() {
       _isManagingVisit = true;
@@ -108,39 +142,62 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
     final alreadyVisited = _existingVisit != null;
 
     if (!alreadyVisited) {
-      // Create a new visit
-      final result = await _visitRepository.createVisit(placeId: place.id);
-      result.fold(
-            (failure) {
-          setState(() {
-            _visitError =
-            'Could not mark “${place.name}” as visited: ${failure.message}';
-            _isManagingVisit = false;
-          });
-        },
-            (visit) {
-          setState(() {
-            _existingVisit = visit;
-            _userVisits.add(visit);
-            _currentVisitCount += 1; // increment the local badge
-            _isManagingVisit = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Marked “${place.name}” as visited!'),
-              backgroundColor: AppColors.success,
-            ),
-          );
-        },
-      );
+      final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
+      if (photo == null) {
+        // user canceled camera
+        setState(() {
+          _isManagingVisit = false;
+        });
+        return;
+      }
+      try {
+        final Uint8List bytes = await photo.readAsBytes();
+        final String filePath =
+            'visit-photos/place_${place.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        await supabase.storage.from('visit-photos').uploadBinary(filePath, bytes);
+        final String publicUrl =
+        supabase.storage.from('visit-photos').getPublicUrl(filePath);
+        final result = await _visitRepository.createVisit(
+          placeId: place.id,
+          photoUrl: publicUrl,
+        );
+        result.fold(
+              (failure) {
+            setState(() {
+              _visitError =
+              'Could not mark “${place.name}” as visited: ${failure.message}';
+              _isManagingVisit = false;
+            });
+          },
+              (visit) {
+            setState(() {
+              _existingVisit = visit;
+              _userVisits.add(visit);
+              _currentVisitCount += 1;
+              _isManagingVisit = false;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Marked “${place.name}” as visited!'),
+                backgroundColor: AppColors.success,
+              ),
+            );
+          },
+        );
+      } catch (e) {
+        setState(() {
+          _visitError = 'Failed to upload photo: ${e.toString()}';
+          _isManagingVisit = false;
+        });
+      }
     } else {
-      // Remove the existing visit (unmark)
       final visitId = _existingVisit!.id;
       final result = await _visitRepository.deleteVisit(visitId);
       result.fold(
             (failure) {
           setState(() {
-            _visitError = 'Could not unmark “${place.name}”: ${failure.message}';
+            _visitError =
+            'Could not unmark “${place.name}”: ${failure.message}';
             _isManagingVisit = false;
           });
         },
@@ -148,9 +205,8 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
           setState(() {
             _userVisits.removeWhere((v) => v.id == visitId);
             _existingVisit = null;
-            _currentVisitCount = (_currentVisitCount > 0)
-                ? _currentVisitCount - 1
-                : 0; // decrement safely
+            _currentVisitCount =
+            (_currentVisitCount > 0) ? _currentVisitCount - 1 : 0;
             _isManagingVisit = false;
           });
           ScaffoldMessenger.of(context).showSnackBar(
@@ -164,14 +220,15 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
     }
   }
 
-  void _toggleFavorite(int placeId) {
+  void _toggleBackendFavorite(int placeId) {
+    // This assumes PlaceDetailBloc is provided above in the widget tree
     context.read<PlaceDetailBloc>().add(ToggleFavoriteStatus(placeId));
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider<PlaceDetailBloc>(
-      create: (context) {
+      create: (_) {
         final bloc = sl<PlaceDetailBloc>();
         bloc.add(FetchPlaceDetail(widget.placeId));
         return bloc;
@@ -199,13 +256,11 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
             if (state is PlaceDetailLoaded) {
               final place = state.place;
 
-              // Initialize local visit count once:
               if (!_didInitializeVisitCount) {
                 _didInitializeVisitCount = true;
                 _currentVisitCount = place.visitCount ?? 0;
               }
 
-              // Only run these once after the place loads:
               if (!_hasRequestedDishes) {
                 _hasRequestedDishes = true;
                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -214,10 +269,10 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
                 });
               }
 
-              return _buildPlaceDetailContent(place);
+              return _buildPlaceDetailContent(place, context);
             }
 
-            // Unexpected fallback:
+            // fallback
             return const Scaffold(
               appBar: CustomAppBar(title: 'Place Detail'),
               body: Center(child: Text('Unknown state')),
@@ -228,18 +283,18 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
     );
   }
 
-  Widget _buildPlaceDetailContent(Place place) {
-    final isVisited = _existingVisit != null;
+  Widget _buildPlaceDetailContent(Place place, BuildContext parentContext) {
+    final bool isVisited = _existingVisit != null;
 
     return CustomScrollView(
       slivers: [
-        // ─── Image Header ─────────────────────────
         SliverAppBar(
           expandedHeight: 300,
           pinned: true,
           backgroundColor: AppColors.primary,
           iconTheme: const IconThemeData(color: AppColors.textLight),
           actions: [
+            // Backend toggle (heart icon)
             IconButton(
               icon: Icon(
                 place.isFavorite == true
@@ -249,15 +304,18 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
                     ? AppColors.error
                     : AppColors.textLight,
               ),
-              onPressed: () => _toggleFavorite(place.id),
+              onPressed: () => _toggleBackendFavorite(place.id),
             ),
+
+            // Local bookmark toggle
             IconButton(
-              icon: const Icon(Icons.map, color: AppColors.textLight),
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Opening map…')),
-                );
-              },
+              icon: Icon(
+                _isRouteFavorited ? Icons.bookmark : Icons.bookmark_border,
+                color: _isRouteFavorited
+                    ? Colors.yellow[700]
+                    : AppColors.textLight,
+              ),
+              onPressed: _toggleRouteFavorite,
             ),
           ],
           flexibleSpace: FlexibleSpaceBar(
@@ -289,7 +347,6 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
           ),
         ),
 
-        // ─── Info Section ─────────────────────────
         SliverToBoxAdapter(
           child: Container(
             color: AppColors.surface,
@@ -297,11 +354,9 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Name
                 Text(place.name, style: AppTextStyles.headlineMedium),
                 const SizedBox(height: 8),
 
-                // Type
                 Row(
                   children: [
                     const Icon(Icons.category,
@@ -310,13 +365,12 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
                     Text(
                       place.typeDisplayName,
                       style: AppTextStyles.bodySmall
-                          .copyWith(color: AppColors.textSecondary),
+                          ?.copyWith(color: AppColors.textSecondary),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
 
-                // Address
                 if (place.address != null && place.address!.isNotEmpty) ...[
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -328,7 +382,7 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
                         child: Text(
                           place.address!,
                           style: AppTextStyles.bodyMedium
-                              .copyWith(color: AppColors.textSecondary),
+                              ?.copyWith(color: AppColors.textSecondary),
                         ),
                       ),
                     ],
@@ -336,7 +390,6 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
                   const SizedBox(height: 8),
                 ],
 
-                // City & Country
                 if (place.city != null) ...[
                   Row(
                     children: [
@@ -346,7 +399,7 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
                       Text(
                         'City: ${place.city!.name}',
                         style: AppTextStyles.bodyMedium
-                            .copyWith(color: AppColors.textSecondary),
+                            ?.copyWith(color: AppColors.textSecondary),
                       ),
                     ],
                   ),
@@ -361,14 +414,13 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
                       Text(
                         'Country: ${place.country!.name}',
                         style: AppTextStyles.bodyMedium
-                            .copyWith(color: AppColors.textSecondary),
+                            ?.copyWith(color: AppColors.textSecondary),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
                 ],
 
-                // Coordinates
                 Row(
                   children: [
                     const Icon(Icons.map,
@@ -378,13 +430,12 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
                       'Coordinates: ${place.latitude?.toStringAsFixed(4) ?? '—'}, '
                           '${place.longitude?.toStringAsFixed(4) ?? '—'}',
                       style: AppTextStyles.bodySmall
-                          .copyWith(color: AppColors.textSecondary),
+                          ?.copyWith(color: AppColors.textSecondary),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
 
-                // Visit & Favorite Badges
                 Row(
                   children: [
                     Chip(
@@ -398,7 +449,7 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
                           Text(
                             '$_currentVisitCount visits',
                             style: AppTextStyles.bodySmall
-                                .copyWith(color: AppColors.textSecondary),
+                                ?.copyWith(color: AppColors.textSecondary),
                           ),
                         ],
                       ),
@@ -415,7 +466,7 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
                           Text(
                             '${place.favoriteCount ?? 0} favorites',
                             style: AppTextStyles.bodySmall
-                                .copyWith(color: AppColors.textSecondary),
+                                ?.copyWith(color: AppColors.textSecondary),
                           ),
                         ],
                       ),
@@ -424,47 +475,39 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Description
                 Text(
                   place.description ?? 'No description available',
                   style: AppTextStyles.bodyMedium
-                      .copyWith(color: AppColors.textSecondary),
+                      ?.copyWith(color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 16),
 
-                // ─── Mark / Unmark as Visited Button ───
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: _isManagingVisit
-                        ? null
-                        : () => _toggleVisited(place),
+                    onPressed:
+                    _isManagingVisit ? null : () => _toggleVisited(place),
                     icon: Icon(
-                      isVisited
-                          ? Icons.check_box
-                          : Icons.check_box_outline_blank,
+                      isVisited ? Icons.check_box : Icons.check_box_outline_blank,
                       color: Colors.white,
                     ),
-                    label: Text(
-                      isVisited ? 'Unmark as Visited' : 'Mark as Visited',
-                    ),
+                    label: Text(isVisited
+                        ? 'Unmark as Visited'
+                        : 'Mark as Visited'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                      isVisited ? AppColors.error : AppColors.success,
+                      backgroundColor: isVisited ? AppColors.error : AppColors.success,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
                   ),
                 ),
-
-                // Inline error (if toggling failed)
                 if (_visitError != null) ...[
                   const SizedBox(height: 8),
                   Text(
                     _visitError!,
                     style: AppTextStyles.bodySmall
-                        .copyWith(color: AppColors.error),
+                        ?.copyWith(color: AppColors.error),
                   ),
                 ],
               ],
@@ -472,7 +515,6 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
           ),
         ),
 
-        // ─── Dishes Section ─────────────────────────
         SliverToBoxAdapter(
           child: Container(
             color: AppColors.surface,
@@ -489,7 +531,6 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
                 else if (_dishes.isEmpty)
                     const Center(child: Text('No dishes available'))
                   else
-                  // One DishCard per Dish
                     ..._dishes.map((dish) {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12),
