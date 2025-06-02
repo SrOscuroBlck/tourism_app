@@ -37,15 +37,16 @@ class _AdminPlacesScreenState extends State<AdminPlacesScreen> {
 
   // Place types available
   final List<String> _placeTypes = [
-    'iglesia',
-    'estadio',
-    'museo',
-    'restaurante',
+    'church',
+    'stadium',
+    'museum',
+    'restaurant',
     'hotel',
-    'parque',
-    'monumento',
-    'teatro',
-    'plaza',
+    'park',
+    'monument',
+    'theater',
+    'square',
+    'other'
   ];
 
   @override
